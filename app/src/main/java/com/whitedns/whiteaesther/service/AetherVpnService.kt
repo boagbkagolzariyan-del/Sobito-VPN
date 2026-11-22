@@ -1302,7 +1302,10 @@ class AetherVpnService : VpnService() {
         // the carrier runs in another process and protect() cannot reach its
         // sockets, so the interface not carrying our own uid is the only thing
         // keeping the carrier's traffic out of the tunnel it is building.
-        val tun = establishTun("", "", forChain = true, transport = name, splitTunnel = splitTunnel)
+        // Experimental workaround only for the Foxy -> Psiphon path. IPv6 is
+        // blocked by Android, not routed outside the VPN, for included apps.
+        val ipv4Only = hops == listOf(Carrier.FOXY, Carrier.PSIPHON)
+        val tun = establishTun("", "", forChain = true, transport = name, splitTunnel = splitTunnel, chainIpv4Only = ipv4Only)
         if (tun == null) {
             reportError(mode, sayNow(R.string.err_no_interface))
             finishIfCurrent(sessionGeneration)
@@ -1392,6 +1395,7 @@ class AetherVpnService : VpnService() {
                     udp = hops.last().carriesUdp,
                     tun = handoff,
                     auth = startedHops.last().second.socksAuth,
+                    ipv4Only = ipv4Only,
                 )
             }
             if (failure != null) {
@@ -2743,6 +2747,7 @@ class AetherVpnService : VpnService() {
         transport: String,
         splitTunnel: SplitTunnel = SplitTunnel(),
         dns: List<String> = emptyList(),
+        chainIpv4Only: Boolean = false,
     ): ParcelFileDescriptor? {
         val configureIntent = PendingIntent.getActivity(
             this,
@@ -2771,14 +2776,16 @@ class AetherVpnService : VpnService() {
             // larger one means fewer crossings per megabyte.
             builder.setMtu(9000)
             addAddress(builder, ChainConfig.TUN_IPV4, 30)
-            addAddress(builder, ChainConfig.TUN_IPV6, 126)
+            if (!chainIpv4Only) addAddress(builder, ChainConfig.TUN_IPV6, 126)
             // The chain's own resolver, not the user's field: mihomo answers
             // from here and asks upstream itself, over DoH through the tunnel.
             // Pointing this at a plain address would move every lookup onto UDP
             // and undo that, so the field is deliberately not honoured in chain
             // mode rather than honoured in a way that reads as a downgrade.
             builder.addDnsServer(ChainConfig.TUN_DNS)
-            builder.addRoute("::", 0)
+            if (!chainIpv4Only) builder.addRoute("::", 0)
+            // No IPv6 address, route, DNS server, or allowFamily call: Android
+            // blocks this address family for VPN-included apps by default.
         } else {
             // The interface has to advertise what the tunnel underneath can
             // actually carry, or the kernel hands the engine packets it then

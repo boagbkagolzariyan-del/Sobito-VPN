@@ -99,6 +99,7 @@ class ChainController(private val context: Context) {
         udp: Boolean,
         tun: TunnelHandoff,
         auth: SocksAuth? = null,
+        ipv4Only: Boolean = false,
     ): String? = tun.use {
         if (!isAvailable) return "This build cannot route a carrier: the chain library is missing"
         settings.startupError()?.let { return it }
@@ -114,11 +115,11 @@ class ChainController(private val context: Context) {
                 // prepareHome, not a bare write: this path fetches providers,
                 // and that fetch travels through the carrier's listener, which
                 // is why the carrier has to be established before we get here.
-                prepareHome(settings, socksPort, ChainConfig.CARRIER_PROXY, auth)
+                prepareHome(settings, socksPort, ChainConfig.CARRIER_PROXY, auth, ipv4Only = ipv4Only)
             } else {
                 home.mkdirs()
                 File(home, "config.yaml").writeText(
-                    ChainConfig.renderCarrier(RuleListStore.of(context).withImported(settings), socksPort, udp, auth),
+                    ChainConfig.renderCarrier(RuleListStore.of(context).withImported(settings), socksPort, udp, auth, ipv4Only),
                 )
             }
 
@@ -134,7 +135,7 @@ class ChainController(private val context: Context) {
             val failure = NativeChainBridge.startTun(
                 fd = tun.take(),
                 stack = ChainConfig.TUN_STACK,
-                address = "${ChainConfig.TUN_IPV4},${ChainConfig.TUN_IPV6}",
+                address = if (ipv4Only) ChainConfig.TUN_IPV4 else "${ChainConfig.TUN_IPV4},${ChainConfig.TUN_IPV6}",
                 dns = ChainConfig.TUN_DNS,
             ).failureText()
             if (failure == null) {
@@ -348,6 +349,7 @@ class ChainController(private val context: Context) {
         proxyName: String = ChainConfig.TUNNEL_PROXY,
         auth: SocksAuth? = null,
         inbound: ChainConfig.ProxyInbound? = null,
+        ipv4Only: Boolean = false,
     ) {
         home.mkdirs()
         val providers = File(home, "providers")
@@ -357,7 +359,7 @@ class ChainController(private val context: Context) {
         val port = java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress()).use { it.localPort }
         val probe = port to SocksAuth.random()
         File(home, "config.yaml").writeText(
-            ChainConfig.render(RuleListStore.of(context).withImported(settings), socksPort, proxyName, auth, probe, inbound),
+            ChainConfig.render(RuleListStore.of(context).withImported(settings), socksPort, proxyName, auth, probe, inbound, ipv4Only),
         )
         probeListener = probe
 

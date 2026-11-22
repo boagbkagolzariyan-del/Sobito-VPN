@@ -70,6 +70,7 @@ object ChainConfig {
         auth: SocksAuth? = null,
         probe: Pair<Int, SocksAuth>? = null,
         inbound: ProxyInbound? = null,
+        ipv4Only: Boolean = false,
     ): String = buildString {
         // No external-controller. The desktop needs one because mihomo is a
         // separate process there; in-process we drive it through the action
@@ -77,12 +78,12 @@ object ChainConfig {
         // nothing uses -- any page the user opens could reach a loopback port.
         append("mode: rule\n")
         append("log-level: info\n")
-        append("ipv6: true\n")
+        append("ipv6: ${!ipv4Only}\n")
         // Off. Rules match on destination only, and resolving the owning process
         // for every connection costs a /proc walk per socket on a phone.
         append("find-process-mode: off\n")
 
-        appendDns(socksPort, proxyName, settings.remoteDns)
+        appendDns(socksPort, proxyName, settings.remoteDns, ipv4Only)
         appendSniffer(settings)
 
         val through = if (socksPort != null) {
@@ -192,14 +193,15 @@ object ChainConfig {
         socksPort: Int,
         udp: Boolean = true,
         auth: SocksAuth? = null,
+        ipv4Only: Boolean = false,
     ): String =
         buildString {
             append("mode: rule\n")
             append("log-level: info\n")
-            append("ipv6: true\n")
+            append("ipv6: ${!ipv4Only}\n")
             append("find-process-mode: off\n")
 
-            appendDns(socksPort, CARRIER_PROXY, settings.remoteDns)
+            appendDns(socksPort, CARRIER_PROXY, settings.remoteDns, ipv4Only)
             appendSniffer(settings)
 
             append("proxies:\n")
@@ -352,11 +354,11 @@ object ChainConfig {
         append("    QUIC: {ports: [443, 8443]}\n")
     }
 
-    private fun StringBuilder.appendDns(socksPort: Int?, proxyName: String = TUNNEL_PROXY, remoteDns: String = "") {
+    private fun StringBuilder.appendDns(socksPort: Int?, proxyName: String = TUNNEL_PROXY, remoteDns: String = "", ipv4Only: Boolean = false) {
         val via = if (socksPort != null) "#$proxyName" else ""
         append("dns:\n")
         append("  enable: true\n")
-        append("  ipv6: true\n")
+        append("  ipv6: ${!ipv4Only}\n")
         append("  listen: 0.0.0.0:1053\n")
         // fake-ip, so a name is answered instantly from a reserved range and the
         // real lookup happens at the far end where it cannot leak.

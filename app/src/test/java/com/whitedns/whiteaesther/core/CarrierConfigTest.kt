@@ -21,6 +21,30 @@ class CarrierConfigTest {
     private val off = ChainSettings(enabled = false)
 
     @Test
+    fun ipv4OnlyCarrierDisablesIpv6AndEmptyAaaaAnswers() {
+        val config = ChainConfig.renderCarrier(off, socksPort = 41234, ipv4Only = true)
+        assertTrue(config.lines().contains("ipv6: false"))
+        assertTrue(config.lines().contains("  ipv6: false"))
+        assertTrue(config.contains("MATCH,${ChainConfig.EXIT_GROUP}"))
+        assertFalse(config.contains(",DIRECT"))
+    }
+
+    @Test
+    fun ipv4OnlyAlsoAppliesWhenAnExitChainIsEnabled() {
+        val settings = ChainSettings(enabled = true, sources = listOf(ChainSource("Test", "https://example.invalid/sub", true)))
+        val config = ChainConfig.render(settings, socksPort = 41234, ipv4Only = true)
+        assertTrue(config.lines().contains("ipv6: false"))
+        assertTrue(config.lines().contains("  ipv6: false"))
+    }
+
+    @Test
+    fun defaultCarrierStillEnablesIpv6() {
+        val config = ChainConfig.renderCarrier(off, socksPort = 41234)
+        assertTrue(config.lines().contains("ipv6: true"))
+        assertTrue(config.lines().contains("  ipv6: true"))
+    }
+
+    @Test
     fun everythingDefaultsIntoTheCarrier() {
         val config = ChainConfig.renderCarrier(off, socksPort = 41234)
 
