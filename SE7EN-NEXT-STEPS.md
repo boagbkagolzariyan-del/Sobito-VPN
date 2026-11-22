@@ -1,0 +1,8 @@
+# Integration plan for this fork
+
+1. Preserve the working, single-TUN implementation; validate the new `Se7enMethod` desktop enum and candidate mappings without quietly falling back. Aether, Psiphon, Tor upstream paths are candidates, not verified parity.
+2. Reimplement `ChainedEngine.cs` using explicit independent outer/inner descriptors and upstream sockets. Do not map an exit-chain (node over carrier) onto an inner-over-outer desktop chain unless the actual packet path and DNS match. Add unit and live tests for each combination and failures before enabling UI entries.
+3. Port `Services/Foxy/*` with Mozilla auth and transport, `Services/Veep/VeepEngine.cs`, `Services/Shard/ShardEngine.cs` + Xray mobile, and evaluate the official Lantern Android SDK against desktop daemon. Preserve seeds, configuration and licenses where permitted; no fake secrets.
+4. Map all desktop settings and UI behavior; replace Windows-only process-path split with explicit Android package selection and clearly distinguish missing domain/IP routing semantics. Desktop settings require schema migration rather than assuming equal fields.
+5. Build and test the Rust bridge and separately-built Go chain for each required Android ABI. Fetch signed Psiphon bootstrap via upstream documented verifier and install PT assets. Capture hashes and source revisions, ship AGPL and all dependency notices.
+6. Verify each enum method, Tor transports, DNS, IPv6, per-app/domain/IP routes, app restarts, handover, lockdown and adverse failures on real Android devices and controlled servers. User-requested full parity is not achieved until every one passes.
